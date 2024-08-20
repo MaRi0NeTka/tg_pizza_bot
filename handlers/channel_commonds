@@ -1,0 +1,39 @@
+from string import punctuation
+
+from aiogram import Router, F, types, Bot
+from aiogram.filters import Command
+
+from filters.chat_types import ChatFilterTypes
+
+channel_router = Router()
+channel_router.message.filter(ChatFilterTypes(['supergroup', 'group']))
+channel_router.edited_message.filter(ChatFilterTypes(['supergroup', 'group']))
+
+ban_words = {'RESTRICTED WORDS'}
+
+
+@channel_router.message(Command('admin'))
+async def get_admins(message:types.Message, bot:Bot):
+    chat_id = message.chat.id
+    admins_lst = await bot.get_chat_administrators(chat_id)
+
+    admins_lst = [somebody.user.id for somebody in admins_lst
+                  if somebody.status == "creator" or somebody.status == "administrator"]
+    
+    bot.my_admins_lst = admins_lst
+    if message.from_user.id in admins_lst:
+        await message.delete()
+        await message.answer('Ok')
+
+
+def text_cleaner(string:str):
+    return string.translate(str.maketrans('','', punctuation))
+
+@channel_router.edited_message()
+@channel_router.message()
+async def message_cleaner(message:types.Message):
+    txt = ban_words.intersection(text_cleaner(message.text.lower()).split())
+    if txt:
+        await message.answer(f'Соблюдай порядок в чате ')
+        await message.delete()
+        #await message.chat.ban(message.from_user.id) команда для блокировки пользователя который использовал запрещенные слова
